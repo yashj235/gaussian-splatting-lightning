@@ -308,12 +308,8 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
         for each visible Gaussian.
         """
         skip_appearance = kwargs.get("skip_appearance", False)
-        skip_visibility = kwargs.get("skip_visibility", False)
-        print(f'Inside forward get rgb: Skip appearance:{skip_appearance}, skip visibility: {skip_visibility}')
-        # print(f'visiblity filter shape:{visibility_filter.shape}')
-        # true_count = torch.sum(visibility_filter).item()
-        # print(f'True count for visibility:{true_count}')
-        # 1) base color from spherical harmonics
+        skip_visibility = kwargs.get("skip_transient", False)
+
 
         # calculate normalized view directions
         detached_xyz = pc.get_xyz.detach()[visibility_filter]
@@ -328,8 +324,6 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
 
         if skip_appearance and skip_visibility:
             # Warm-up: no offset from MLP
-            print(f'I am in first if')
-            # print(f'base_rgb shape:{base_rgb.shape},other tensor shape:{torch.ones(1,camera.height,camera.width)}')
             rgb = torch.clamp(
                 self.sh(
                     pc,
@@ -340,7 +334,6 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
             )
             return rgb, torch.ones(1, camera.height, camera.width)
         elif skip_appearance==True and skip_visibility==False:
-            print(f'I am in second if')
             _, visibility_from_mlp = self.model(
                 camera.width.item(),
                 camera.height.item(),
@@ -358,7 +351,6 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
             )
             return torch.clamp(rgb, 0., 1.), visibility_from_mlp.unsqueeze(0)       
         elif skip_appearance==False and skip_visibility==True:
-            print(f'I am in third if')
             raw_rgb_offset, _ = self.model(
                 camera.width.item(),
                 camera.height.item(),
@@ -595,45 +587,8 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
             "projections": projections,
             "isects": isects,
             "visibility": visibility_from_mlp,
-            "extra_image": visibility_from_mlp.squeeze(0)
+            "extra_image": visibility_from_mlp
         }
-
-    # def forward(self, viewpoint_camera, pc, bg_color, scaling_modifier=1.0, skip_appearance=False, skip_transient=False, **kwargs):
-    #     """
-    #     Overridden forward to attach visibility map or do normal pass.
-    #     We'll still rely on the parent's tile-based culling, but we
-    #     override get_rgb to check skip_appearance, and also manually handle
-    #     skip_transient for the final output.
-    #     """
-    #     # Use parent's forward, but it will call self.get_rgb
-    #     # so our get_rgb can see skip_appearance
-    #     outputs = super().forward(viewpoint_camera, pc, bg_color, scaling_modifier=scaling_modifier, **kwargs)
-
-    #     # If we haven't warmed up transient logic, override visibility
-    #     if skip_transient or skip_appearance:
-    #         # i.e. fill with 1.0 so everything is fully visible
-    #         h, w = viewpoint_camera.height.item(), viewpoint_camera.width.item()
-    #         outputs["visibility"] = torch.ones((1, h, w), device=bg_color.device)
-    #         outputs["extra_image"] = outputs["visibility"]
-    #     else:
-    #         # if not skipping transient, we might call a function that
-    #         # produces the real per-pixel visibility map
-    #         # e.g.:
-    #         raw_rgb_offset, _ = self.model(
-    #             viewpoint_camera.width.item(),
-    #             viewpoint_camera.height.item(),
-    #             pc.get_appearance_features()[gaussian_indices],
-    #             viewpoint_camera.appearance_id,
-    #             viewdirs
-    #         )
-    #         _,vis_map = self.compute_transient_visibility(viewpoint_camera, pc, **kwargs)
-    #         outputs["visibility"] = vis_map
-    #         outputs["extra_image"] = vis_map
-
-
-
-
-    #     return outputs
 
 
     def training_forward(self, step: int, module, viewpoint_camera: Camera, pc: GaussianModel, bg_color: torch.Tensor, scaling_modifier=1.0, **kwargs):
@@ -649,7 +604,6 @@ class GSplatAppearanceEmbeddingVisibilityMapRendererModule(GSplatV1RendererModul
 
         # 3) if step < transient_warm_up, skip transient logic (use all-ones visibility)
         skip_transient = (step < transient_warm_up)
-        print(f'I am in training forward at step: {step}: Skip appearance:{skip_appearance}, skip visibility: {skip_transient}')
 
         # 4) call forward with flags
         render_outputs = self.forward(
