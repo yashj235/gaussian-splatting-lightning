@@ -74,6 +74,10 @@ class DataParserOutputs:
 
     camera_extent: Optional[float] = None
 
+    # New fields for DINO integration
+    dino_embedding_size: Optional[int] = None
+    dino_embeddings_per_appearance: Optional[dict[int, torch.Tensor]] = None
+
     def __post_init__(self):
         if self.camera_extent is None:
             camera_centers = self.train_set.cameras.camera_center

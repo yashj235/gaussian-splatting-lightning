@@ -9,3 +9,4 @@ from .matrix_city_dataparser import MatrixCity
 from .phototourism_dataparser import PhotoTourism
 from .segany_colmap_dataparser import SegAnyColmap
 from .feature_3dgs_dataparser import Feature3DGSColmap
+from .colmap_dino_dataparser import ColmapDino
