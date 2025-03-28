@@ -452,6 +452,13 @@ class Viewer:
         dataset_type = None
         if load_from.endswith(".ckpt") is True:
             model, renderer, checkpoint = self._initialize_models_from_checkpoint(load_from)
+            ckpt_path = Path(load_from)
+            base_dir = ckpt_path.parent.parent if ckpt_path.name.endswith(".ckpt") else Path(load_from)
+            dino_path = base_dir / "dino_embeddings.pt"
+
+            if dino_path.exists() and hasattr(renderer, "set_dino_embeddings"):
+                renderer.set_dino_embeddings(torch.load(dino_path))
+                print(f"[viewer] Loaded DINO embeddings from {dino_path}")
             training_output_base_dir = os.path.dirname(os.path.dirname(load_from))
 
             # get dataset type

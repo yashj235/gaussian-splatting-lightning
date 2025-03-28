@@ -597,7 +597,11 @@ class GaussianSplatting(LightningModule):
                 for i in item["output_images"]:
                     if self.renderer.__class__.__name__ in [
                         "GSplatAppearanceEmbeddingVisibilityMapRenderer",
-                        "GSplatAppearanceEmbeddingVisibilityMapRendererModule"
+                        "GSplatAppearanceEmbeddingVisibilityMapRendererModule",
+                        "GSplatAppearanceDinoVisibilityMapRenderer",
+                        "GSplatAppearanceDinoVisibilityMapRendererModule",
+                        "GSplatAppearanceDinoSquaredVisibilityMapRenderer",
+                        "GSplatAppearanceDinoSquaredVisibilityMapRendererModule"
                     ]:                        
                         if i.shape[0] == 1:
                             i = i.repeat(3, 1, 1)
@@ -708,6 +712,17 @@ class GaussianSplatting(LightningModule):
         )
         os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
         self.trainer.save_checkpoint(checkpoint_path)
+        
+        dp_outputs = getattr(self.trainer.datamodule, "dataparser_outputs", None)
+        # print(f"[DINO] dataparser_outputs = {type(dp_outputs)}")
+
+        if hasattr(dp_outputs, "dino_embeddings_per_appearance"):
+            output_path = self.hparams["output_path"]
+            dino_path = os.path.join(output_path, "dino_embeddings.pt")
+            dino_embeddings = dp_outputs.dino_embeddings_per_appearance
+            torch.save(dino_embeddings, dino_path)
+            print(f"[DINO] Saved dino_embeddings_per_appearance to {dino_path}")
+        
         with torch.no_grad():
             xyz = self.gaussian_model.get_xyz
             rgb = eval_sh(0, self.gaussian_model.get_features[:, :1, :].transpose(1, 2), None)
